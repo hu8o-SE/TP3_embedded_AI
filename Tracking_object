@@ -1,0 +1,80 @@
+!pip install ultralytics
+
+#import yolov8 libraries
+#https://docs.ultralytics.com/
+
+import ultralytics
+from ultralytics import YOLO
+
+import cv2
+import numpy as np
+from google.colab.patches import cv2_imshow
+
+# mount google colab
+from google.colab import drive
+drive.mount('/content/drive')
+
+#on charge notre modèle, entrainé sur notre dataset
+#tutorial : https://docs.ultralytics.com/modes/predict/#inference-sources
+
+model = YOLO('/content/drive/MyDrive/Dataset2/best.onnx',task='detect') # your trained model
+
+
+cap = cv2.VideoCapture('/content/drive/MyDrive/TP3_EMBBEDED_IA/VID_20231005_225213.mp4')
+
+while cap.isOpened():
+
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame = cv2.resize(frame, (224, 224))
+
+    results = model.predict(frame, imgsz=[224,224], conf=0.9)
+
+    if len(results) > 0:
+        for r in results:
+
+            res_plotted = results[0].plot()
+            box = r.boxes.cpu()
+            box_sz = box.xyxy.numpy()
+
+            if box_sz.size != 0:
+
+                x_min, y_min, x_max, y_max = box_sz[0]
+
+                # centre balle
+                x = int((x_min + x_max) / 2)
+                y = int((y_min + y_max) / 2)
+
+                # centre image
+                h, w = res_plotted.shape[:2]
+                xim = int(w / 2)
+                yim = int(h / 2)
+
+                # erreur
+                dx = x - xim
+                dy = y - yim
+
+                # affichage
+                cv2.circle(res_plotted, (x, y), 4, (0, 0, 255), -1)
+                cv2.circle(res_plotted, (xim, yim), 4, (0, 255, 0), -1)
+                cv2.line(res_plotted, (xim, yim), (x, y), (255, 0, 0), 2)
+
+                cv2.putText(res_plotted,
+                            f"dx={dx}  dy={dy}",
+                            (10, 20),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (255, 255, 255),
+                            2)
+
+                cv2_imshow(res_plotted)
+
+            break
+
+    if cv2.waitKey(1) == 27:
+        break
+
+cap.release()
+cv2.destroyAllWindows()
